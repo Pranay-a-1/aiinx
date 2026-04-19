@@ -185,7 +185,7 @@ function collectFiles(dir, outputAbsPath, results = []) {
 /**
  * Format one file as a markdown section.
  */
-function formatFile(absPath, relPath, opts) {
+function formatFile(absPath, relPath, opts = {}) {
   const ext  = path.extname(absPath).toLowerCase();
   const lang = LANG_MAP[ext] ?? '';
   let content;
