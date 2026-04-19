@@ -64,6 +64,86 @@ const LANG_MAP = {
   '.lua':  'lua',
 };
 
+// Extensions that support comment removal
+const COMMENT_EXTS = new Set(['.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx', '.java']);
+
+/**
+ * Strip // line comments and /* block comments from source content.
+ * String-aware: skips content inside "", '', and `` literals.
+ */
+function removeComments(content) {
+  const out = [];
+  let i = 0;
+  const len = content.length;
+
+  while (i < len) {
+    const ch = content[i];
+
+    // String literal — copy verbatim until closing quote
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch;
+      out.push(content[i++]);
+      while (i < len) {
+        if (content[i] === '\\' && i + 1 < len) {
+          // escaped character — keep both
+          out.push(content[i++]);
+          out.push(content[i++]);
+        } else if (content[i] === quote) {
+          out.push(content[i++]);
+          break;
+        } else {
+          out.push(content[i++]);
+        }
+      }
+      continue;
+    }
+
+    // Block comment  /* ... */
+    if (ch === '/' && i + 1 < len && content[i + 1] === '*') {
+      i += 2; // skip /*
+      while (i + 1 < len && !(content[i] === '*' && content[i + 1] === '/')) {
+        i++;
+      }
+      i += 2; // skip */
+      continue;
+    }
+
+    // Line comment  // ...
+    if (ch === '/' && i + 1 < len && content[i + 1] === '/') {
+      while (i < len && content[i] !== '\n') {
+        i++;
+      }
+      // leave the newline in place — don't advance past it
+      continue;
+    }
+
+    out.push(content[i++]);
+  }
+
+  return out.join('');
+}
+
+/**
+ * Apply content transformations based on opts.
+ * @param {string} content   Raw file text
+ * @param {string} ext       Lowercase file extension e.g. '.js'
+ * @param {{ removeComments: boolean, removeEmptyLines: boolean }} opts
+ * @returns {string}
+ */
+function processContent(content, ext, opts) {
+  let out = content;
+
+  if (opts.removeComments && COMMENT_EXTS.has(ext)) {
+    out = removeComments(out);
+  }
+
+  if (opts.removeEmptyLines) {
+    out = out.split('\n').filter(line => line.trim() !== '').join('\n');
+  }
+
+  return out;
+}
+
 /**
  * Recursively collect all non-binary, non-ignored file paths
  * under `dir`. Returns absolute paths sorted alphabetically.
