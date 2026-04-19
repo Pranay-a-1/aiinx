@@ -19,6 +19,12 @@ const BINARY_EXTS = new Set([
   '.mp3', '.mp4', '.wav', '.ogg', '.mov', '.avi',
 ]);
 
+// Filenames that should never be packed (credential exposure risk)
+const SENSITIVE_NAMES = new Set([
+  '.env', '.env.local', '.env.production', '.env.development',
+  '.env.staging', '.env.test',
+]);
+
 // Map extension → markdown language tag
 const LANG_MAP = {
   '.js':   'js',
@@ -79,6 +85,7 @@ function collectFiles(dir, outputAbsPath, results = []) {
       if (absPath === outputAbsPath) continue;               // skip output file
       const ext = path.extname(entry.name).toLowerCase();
       if (BINARY_EXTS.has(ext)) continue;                   // skip binaries
+      if (SENSITIVE_NAMES.has(entry.name)) continue;        // skip sensitive files
       results.push(absPath);
     }
   }
@@ -97,27 +104,36 @@ function formatFile(absPath, relPath) {
   } catch {
     return `## ${relPath}\n\n_Could not read file._\n\n`;
   }
-  return `## ${relPath}\n\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
+  const fence = content.includes('```') ? '````' : '```';
+  return `## ${relPath}\n\n${fence}${lang}\n${content}\n${fence}\n\n`;
 }
 
 function main() {
-  const targetDir    = path.resolve(process.argv[2] ?? '.');
-  const outputPath   = path.join(targetDir, 'output.md');
-  const outputAbs    = path.resolve(outputPath);
+  const targetDir  = path.resolve(process.argv[2] ?? '.');
+  const outputPath = path.join(targetDir, 'output.md');
 
-  const files = collectFiles(targetDir, outputAbs);
+  const files = collectFiles(targetDir, outputPath);
 
   if (files.length === 0) {
     console.log('No files found.');
     return;
   }
 
-  const fd = fs.openSync(outputPath, 'w');
-  for (const absPath of files) {
-    const relPath = path.relative(targetDir, absPath);
-    fs.writeSync(fd, formatFile(absPath, relPath));
+  let fd;
+  try {
+    fd = fs.openSync(outputPath, 'w');
+  } catch (err) {
+    console.error(`Error: cannot write output file: ${err.message}`);
+    process.exit(1);
   }
-  fs.closeSync(fd);
+  try {
+    for (const absPath of files) {
+      const relPath = path.relative(targetDir, absPath);
+      fs.writeSync(fd, formatFile(absPath, relPath));
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
 
   console.log(`Packed ${files.length} files → ${path.relative(process.cwd(), outputPath)}`);
 }
