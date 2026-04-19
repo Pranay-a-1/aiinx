@@ -185,7 +185,7 @@ function collectFiles(dir, outputAbsPath, results = []) {
 /**
  * Format one file as a markdown section.
  */
-function formatFile(absPath, relPath) {
+function formatFile(absPath, relPath, opts) {
   const ext  = path.extname(absPath).toLowerCase();
   const lang = LANG_MAP[ext] ?? '';
   let content;
@@ -194,12 +194,23 @@ function formatFile(absPath, relPath) {
   } catch {
     return `## ${relPath}\n\n_Could not read file._\n\n`;
   }
+
+  content = processContent(content, ext, opts);
+
   const fence = content.includes('```') ? '````' : '```';
   return `## ${relPath}\n\n${fence}${lang}\n${content}\n${fence}\n\n`;
 }
 
 function main() {
-  const targetDir  = path.resolve(process.argv[2] ?? '.');
+  const args = process.argv.slice(2);
+
+  const removeComments   = args.includes('--remove-comments');
+  const removeEmptyLines = args.includes('--remove-empty-lines');
+  const dirArg = args.find(a => !a.startsWith('--'));
+
+  const opts = { removeComments, removeEmptyLines };
+
+  const targetDir  = path.resolve(dirArg ?? '.');
   const outputPath = path.join(targetDir, 'output.md');
 
   const files = collectFiles(targetDir, outputPath);
@@ -219,7 +230,7 @@ function main() {
   try {
     for (const absPath of files) {
       const relPath = path.relative(targetDir, absPath);
-      fs.writeSync(fd, formatFile(absPath, relPath));
+      fs.writeSync(fd, formatFile(absPath, relPath, opts));
     }
   } finally {
     fs.closeSync(fd);
