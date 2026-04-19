@@ -64,12 +64,21 @@ const LANG_MAP = {
   '.lua':  'lua',
 };
 
-// Extensions that support comment removal
-const COMMENT_EXTS = new Set(['.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx', '.java']);
+// Extensions that support comment removal (all use // and /* */ syntax)
+const COMMENT_EXTS = new Set([
+  '.js', '.mjs', '.cjs', '.jsx',
+  '.ts', '.tsx',
+  '.java',
+  '.cs', '.go', '.swift', '.kt', '.php',
+  '.rs', '.c', '.cpp', '.h',
+  '.scss',
+]);
 
 /**
  * Strip // line comments and /* block comments from source content.
  * String-aware: skips content inside "", '', and `` literals.
+ * @note Regex literals containing // (e.g. /https?:\/\//) will be corrupted.
+ *       This is a known limitation of regex-based comment removal.
  */
 function removeComments(content) {
   const out = [];
@@ -130,7 +139,7 @@ function removeComments(content) {
  * @param {{ removeComments: boolean, removeEmptyLines: boolean }} opts
  * @returns {string}
  */
-function processContent(content, ext, opts) {
+function processContent(content, ext, opts = {}) {
   let out = content;
 
   if (opts.removeComments && COMMENT_EXTS.has(ext)) {
@@ -138,6 +147,7 @@ function processContent(content, ext, opts) {
   }
 
   if (opts.removeEmptyLines) {
+    // Note: trailing newline is not preserved after this filter.
     out = out.split('\n').filter(line => line.trim() !== '').join('\n');
   }
 
