@@ -187,7 +187,7 @@ function collectFiles(dir, outputAbsPath, results = []) {
  */
 function formatFile(absPath, relPath, opts = {}) {
   const ext  = path.extname(absPath).toLowerCase();
-  const lang = LANG_MAP[ext] ?? '';
+  const lang = LANG_MAP[ext] ?? 'text';
   let content;
   try {
     content = fs.readFileSync(absPath, 'utf8');
@@ -228,6 +228,7 @@ function main() {
     process.exit(1);
   }
   try {
+    fs.writeSync(fd, '# Packed Files\n\n');
     for (const absPath of files) {
       const relPath = path.relative(targetDir, absPath);
       fs.writeSync(fd, formatFile(absPath, relPath, opts));
@@ -235,6 +236,10 @@ function main() {
   } finally {
     fs.closeSync(fd);
   }
+
+  // MD047: trim trailing extra newline so file ends with exactly one \n
+  const size = fs.statSync(outputPath).size;
+  fs.truncateSync(outputPath, size - 1);
 
   console.log(`Packed ${files.length} files → ${path.relative(process.cwd(), outputPath)}`);
 }
