@@ -237,9 +237,11 @@ function main() {
     fs.closeSync(fd);
   }
 
-  // MD047: trim trailing extra newline so file ends with exactly one \n
+  // MD047: formatFile() always ends sections with \n\n; remove the last \n
+  // so the file ends with exactly one newline. Guard size > 0 to prevent
+  // underflow if the invariant ever breaks.
   const size = fs.statSync(outputPath).size;
-  fs.truncateSync(outputPath, size - 1);
+  if (size > 0) fs.truncateSync(outputPath, size - 1);
 
   console.log(`Packed ${files.length} files → ${path.relative(process.cwd(), outputPath)}`);
 }
